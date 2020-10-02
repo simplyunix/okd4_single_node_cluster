@@ -1,1 +1,6 @@
+VMS
+Machine         Type            OS              vCPU      RAM     Storage   IP Address
+okd4-services (DNS/LB/WEB/NFS)  Fedora Server   2         2       100       10.1.0.6
+okd4-control-plane-1  Master    Fedora CoreOS   4         4       120       10.1.0.x
+okd4-bootstrap  Bootstrap       Fedora CoreOS   2         2       120       10.1.0.x
 
