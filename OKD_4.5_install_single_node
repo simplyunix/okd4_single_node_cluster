@@ -1,6 +1,81 @@
 VMS
 Machine         Type            OS              vCPU      RAM     Storage   IP Address
 okd4-services (DNS/LB/WEB/NFS)  Fedora Server   2         2       100       10.1.0.6
-okd4-control-plane-1  Master    Fedora CoreOS   4         4       120       10.1.0.x
-okd4-bootstrap  Bootstrap       Fedora CoreOS   2         2       120       10.1.0.x
+okd4-control-plane-1  Master    Fedora CoreOS   4         4       120       10.1.0.29
+
+okd4-bootstrap  Bootstrap       Fedora CoreOS   2         2       120       10.1.0.11
+
+After the installation has completed, login, and update the OS.
+sudo dnf update -y
+sudo dnf install -y git wget vim
+sudo init 6
+
+okd4-services	10.1.0.6          # DNS/LB/Web/NFS 192.168.60.240
+okd4-control-plane-1	10.1.0.x  # Master # 192.168.60.241
+okd4-bootstrap	10.1.0.x        # Bootstrap # 192.168.60.242
+
+# nmcli con mod "System eth0" ipv4.dns "127.0.0.1"
+# nmcli con show "System eth0" |grep -i dns
+nmcli connection show
+ip addr show eth0
+
+
+Configure okd4-services VM to host various services:
+The okd4-services VM is used to provide DNS, NFS exports, web server, and load balancing.
+Open a terminal on the okd4-services VM and clone the okd4_files repo (branch snc) that contains the DNS, HAProxy, and install-conf.yaml example files:
+cd
+git clone -b snc https://github.com/cragr/okd4_files.git
+cd okd4_files
+
+Install bind (DNS)
+sudo dnf -y install bind bind-utils
+Copy the named config files and zones:
+sudo cp named.conf /etc/named.conf
+sudo cp named.conf.local /etc/named/
+sudo mkdir /etc/named/zones
+sudo cp db* /etc/named/zones
+Enable and start named:
+sudo systemctl enable named
+sudo systemctl start named
+sudo systemctl status named
+Create firewall rules:
+sudo firewall-cmd --permanent --add-port=53/udp
+sudo firewall-cmd --reload
+Change the DNS on the okd4-service to 127.0.0.1:
+sudo nmcli connection modify ens192 ipv4.dns "127.0.0.1"
+Restart the network services on the okd4-services VM:
+sudo systemctl restart NetworkManager
+Test DNS on the okd4-services.
+dig okd.local
+dig –x 192.168.60.240
+
+Install HAProxy:
+sudo dnf install haproxy -y
+Copy haproxy config from the git okd4_files directory :
+sudo cp haproxy.cfg /etc/haproxy/haproxy.cfg
+Start, enable, and verify HA Proxy service:
+sudo setsebool -P haproxy_connect_any 1
+sudo systemctl enable haproxy
+sudo systemctl start haproxy
+sudo systemctl status haproxy
+Add OKD firewall ports:
+sudo firewall-cmd --permanent --add-port=6443/tcp
+sudo firewall-cmd --permanent --add-port=22623/tcp
+sudo firewall-cmd --permanent --add-service=http
+sudo firewall-cmd --permanent --add-service=https
+sudo firewall-cmd --reload
+Install Apache/HTTPD
+sudo dnf install -y httpd
+Change httpd to listen port to 8080:
+sudo sed -i 's/Listen 80/Listen 8080/' /etc/httpd/conf/httpd.conf
+Enable and Start httpd service/Allow port 8080 on the firewall:
+sudo setsebool -P httpd_read_user_content 1
+sudo systemctl enable httpd
+sudo systemctl start httpd
+sudo firewall-cmd --permanent --add-port=8080/tcp
+sudo firewall-cmd --reload
+Test the webserver:
+curl localhost:8080
+
+
 
